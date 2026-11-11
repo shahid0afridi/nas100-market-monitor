@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NAS100 Monitor">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <title>NAS100 Market Monitor</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080e19;--panel:#111b2b;--panel2:#172338;--line:#26364d;--muted:#9aabc2;--text:#eef4ff;--green:#35d39a;--red:#ff6b78;--amber:#f5c56b;--blue:#75aaff}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#0b1424,#080e19 38%);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 14px calc(24px + env(safe-area-inset-bottom));}
+    main{max-width:760px;margin:0 auto}
+    header{display:flex;justify-content:space-between;align-items:center;padding:18px 2px 14px}
+    h1{font-size:22px;letter-spacing:-.5px;margin:0}
+    .sub{color:var(--muted);font-size:12px;margin-top:5px}
+    button,.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px 13px;border-radius:12px;font-weight:650}
+    button:disabled{opacity:.45}
+    .panel{background:rgba(17,27,43,.94);border:1px solid var(--line);border-radius:18px;padding:15px;margin:10px 0;box-shadow:0 10px 28px #0002}
+    .topline{display:flex;justify-content:space-between;align-items:center;gap:12px}
+    .eyebrow{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+    .big{font-size:27px;font-weight:800;letter-spacing:-1px;margin-top:5px}
+    .muted{color:var(--muted)}
+    .positive{color:var(--green)!important}.negative{color:var(--red)!important}.neutral{color:var(--amber)!important}
+    .pill{font-size:11px;border-radius:999px;padding:6px 9px;background:#25334a;color:#dce8fa;white-space:nowrap}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+    .metric{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:12px;min-width:0}
+    .metric .name{font-size:12px;color:var(--muted)}
+    .metric .val{font-size:20px;font-weight:750;margin-top:7px}
+    .metric .price{font-size:11px;color:var(--muted);margin-top:4px}
+    h2{font-size:15px;margin:0 0 12px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid #26364d}
+    .row:last-child{border-bottom:0;padding-bottom:0}
+    .ticker{font-weight:750}.company{font-size:11px;color:var(--muted);margin-top:3px}
+    .right{text-align:right}.change{font-weight:750;font-variant-numeric:tabular-nums}.price-small{font-size:11px;color:var(--muted);margin-top:3px}
+    .score{font-size:30px;font-weight:850}.score-note{font-size:12px;color:var(--muted);line-height:1.5}
+    .bar{height:8px;background:#26364d;border-radius:20px;overflow:hidden;margin:12px 0 8px}.bar>span{display:block;height:100%;width:50%;background:var(--blue);border-radius:20px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1}
+    input{width:100%;background:#08111f;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:13px;font-size:16px;margin:8px 0 10px}
+    .notice{font-size:12px;color:var(--muted);line-height:1.55}
+    .status{font-size:12px;color:var(--muted)}
+    .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--amber);margin-right:6px}
+    .dot.ok{background:var(--green)}.dot.bad{background:var(--red)}
+    .hidden{display:none}
+    a{color:var(--blue)}
+    @media(min-width:600px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>NAS100 Market Monitor</h1>
+      <div class="sub">Stock participation · Personal trading dashboard</div>
+    </div>
+    <button id="refreshBtn">Refresh</button>
+  </header>
+
+  <section class="panel">
+    <div class="topline">
+      <div><div class="eyebrow">Market participation</div><div class="big" id="overall">Waiting for quotes</div></div>
+      <span class="pill" id="marketState">Not connected</span>
+    </div>
+    <div class="bar"><span id="strengthBar"></span></div>
+    <div class="score-note" id="summary">Add your Finnhub API key to load the major US stock quotes.</div>
+    <div class="status" style="margin-top:10px"><span class="dot" id="statusDot"></span><span id="statusText">API key required</span></div>
+  </section>
+
+  <section class="panel">
+    <h2>Major NASDAQ stocks</h2>
+    <div class="grid" id="stockGrid"></div>
+    <div class="notice" style="margin-top:12px">Quotes are individual stock moves, not each stock's direct contribution to NAS100. Company weights differ.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Index proxies</h2>
+    <div id="proxyList">
+      <div class="row"><div><div class="ticker">QQQ</div><div class="company">Nasdaq-100 ETF proxy</div></div><div class="right muted">Waiting</div></div>
+      <div class="row"><div><div class="ticker">SPY</div><div class="company">S&amp;P 500 ETF proxy</div></div><div class="right muted">Waiting</div></div>
+    </div>
+    <div class="notice" style="margin-top:10px">QQQ and SPY are exchange-traded funds used as broad proxies. They are not the NAS100 CFD quote from your broker.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Macro watchlist</h2>
+    <div class="row"><div><div class="ticker">VIX</div><div class="company">Expected S&amp;P 500 volatility</div></div><a href="https://www.tradingview.com/symbols/CBOE-VIX/" target="_blank" rel="noopener">Open chart ↗</a></div>
+    <div class="row"><div><div class="ticker">US10Y</div><div class="company">US 10-year Treasury yield</div></div><a href="https://www.tradingview.com/symbols/TVC-US10Y/" target="_blank" rel="noopener">Open chart ↗</a></div>
+    <div class="row"><div><div class="ticker">DXY</div><div class="company">US Dollar Index</div></div><a href="https://www.tradingview.com/symbols/TVC-DXY/" target="_blank" rel="noopener">Open chart ↗</a></div>
+    <div class="notice" style="margin-top:10px">Macro charts open in TradingView. Their direction is context, not an automatic buy/sell signal.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Connect market data</h2>
+    <label class="notice" for="apiKey">Finnhub API key (stored only in this browser on this device)</label>
+    <input id="apiKey" type="password" autocomplete="off" placeholder="Paste your Finnhub API key">
+    <div class="actions">
+      <button id="saveBtn">Save key &amp; load quotes</button>
+      <button id="clearBtn">Clear key</button>
+    </div>
+    <p class="notice">Use this only for your own personal dashboard and follow Finnhub's current plan terms. Never paste your key into a public code file or share it. The app calls Finnhub directly from your browser; the key can be seen by you in your browser's network activity.</p>
+  </section>
+
+  <footer class="notice" style="padding:8px 3px 20px">
+    Data source: Finnhub. Quote updates are rate-limited to one refresh per minute. Data may be delayed, unavailable outside market hours, or subject to provider/exchange terms. This dashboard is informational, not financial advice.
+    <div style="margin-top:8px">Last update: <span id="lastUpdated">—</span></div>
+  </footer>
+</main>
+<script>
+const STOCKS = [
+  ["NVDA","NVIDIA"],["MSFT","Microsoft"],["AAPL","Apple"],["AMZN","Amazon"],
+  ["META","Meta"],["GOOGL","Alphabet"],["AVGO","Broadcom"],["TSLA","Tesla"]
+];
+const PROXIES = [["QQQ","Nasdaq-100 ETF proxy"],["SPY","S&P 500 ETF proxy"]];
+const ALL = [...STOCKS,...PROXIES];
+const $ = id => document.getElementById(id);
+let lastFetch = 0, timer = null, quotes = {};
+
+function pctClass(n){return n>0?"positive":n<0?"negative":"neutral"}
+function fmt(n){return Number.isFinite(n)?n.toFixed(2):"—"}
+function render(){
+  $("stockGrid").innerHTML = STOCKS.map(([s,name])=>{
+    const q=quotes[s];
+    return `<div class="metric"><div class="name">${name}</div><div class="ticker">${s}</div><div class="val ${q?pctClass(q.dp):"muted"}">${q?(q.dp>0?"+":"")+fmt(q.dp)+"%":"—"}</div><div class="price">${q?"$"+fmt(q.c):"No quote"}</div></div>`;
+  }).join("");
+  $("proxyList").innerHTML = PROXIES.map(([s,name])=>{
+    const q=quotes[s];
+    return `<div class="row"><div><div class="ticker">${s}</div><div class="company">${name}</div></div><div class="right"><div class="change ${q?pctClass(q.dp):"muted"}">${q?(q.dp>0?"+":"")+fmt(q.dp)+"%":"—"}</div><div class="price-small">${q?"$"+fmt(q.c):"No quote"}</div></div></div>`;
+  }).join("");
+  const valid=STOCKS.map(([s])=>quotes[s]).filter(Boolean);
+  if(!valid.length){$("overall").textContent="Waiting for quotes";$("summary").textContent="Connect your API key to calculate stock participation.";return}
+  const up=valid.filter(q=>q.dp>0).length, down=valid.filter(q=>q.dp<0).length, flat=valid.length-up-down;
+  const avg=valid.reduce((a,q)=>a+q.dp,0)/valid.length;
+  $("overall").textContent=up>down?"More stocks rising":down>up?"More stocks falling":"Mixed participation";
+  $("overall").className="big "+(up>down?"positive":down>up?"negative":"neutral");
+  $("strengthBar").style.width=(up/valid.length*100)+"%";
+  $("strengthBar").style.background=up>down?"var(--green)":down>up?"var(--red)":"var(--amber)";
+  $("summary").textContent=`${up} rising · ${down} falling · ${flat} unchanged. Equal-weight average move: ${avg>=0?"+":""}${fmt(avg)}%. This is a breadth snapshot, not a weighted NAS100 contribution calculation.`;
+  const qqq=quotes.QQQ, spy=quotes.SPY;
+  $("marketState").textContent=qqq&&spy?(qqq.dp>0&&spy.dp>0?"ETF proxies aligned up":qqq.dp<0&&spy.dp<0?"ETF proxies aligned down":"ETF proxies mixed"):"Waiting for ETF proxies";
+}
+async function loadQuotes(force=false){
+  const key=localStorage.getItem("nas100_finnhub_key");
+  if(!key){$("statusText").textContent="API key required";$("statusDot").className="dot";return}
+  const now=Date.now();
+  if(!force && now-lastFetch<60000){$("statusText").textContent="Refresh limit: please wait before updating again";return}
+  lastFetch=now;
+  $("refreshBtn").disabled=true;$("statusText").textContent="Loading quotes…";$("statusDot").className="dot";
+  try{
+    const results=await Promise.all(ALL.map(async ([symbol])=>{
+      const url=`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(key)}`;
+      const res=await fetch(url);
+      if(!res.ok) throw new Error(`HTTP ${res.status} for ${symbol}`);
+      const q=await res.json();
+      if(!q || !Number.isFinite(Number(q.c)) || Number(q.c)===0) return [symbol,null];
+      return [symbol,{c:Number(q.c),dp:Number(q.dp),d:Number(q.d),t:Number(q.t||0)}];
+    }));
+    results.forEach(([s,q])=>{if(q)quotes[s]=q;});
+    render();
+    $("lastUpdated").textContent=new Date().toLocaleString();
+    $("statusText").textContent="Quotes loaded. Check timestamps and market hours.";
+    $("statusDot").className="dot ok";
+    $("marketState").textContent="Connected";
+  }catch(err){
+    $("statusText").textContent="Could not load all quotes: "+err.message;
+    $("statusDot").className="dot bad";
+  }finally{
+    $("refreshBtn").disabled=false;
+  }
+}
+$("saveBtn").addEventListener("click",()=>{
+  const key=$("apiKey").value.trim();
+  if(!key){alert("Paste your Finnhub API key first.");return}
+  localStorage.setItem("nas100_finnhub_key",key);
+  $("apiKey").value="";
+  if (!timer) timer=setInterval(()=>loadQuotes(false),60000);
+  loadQuotes(true);
+});
+$("clearBtn").addEventListener("click",()=>{
+  localStorage.removeItem("nas100_finnhub_key");quotes={};render();
+  $("statusText").textContent="API key cleared";$("statusDot").className="dot";
+});
+$("refreshBtn").addEventListener("click",()=>loadQuotes(false));
+const saved=localStorage.getItem("nas100_finnhub_key");
+if(saved){loadQuotes(true);timer=setInterval(()=>loadQuotes(false),60000);}
+render();
+if ("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+</script>
+</body>
+</html>
